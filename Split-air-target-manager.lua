@@ -3,7 +3,7 @@ function widget:GetInfo()
         name = "Split air target manager",
         desc = "To enable select AA and press Alt+Space, to disable deselect any unit and press Alt+Space two times",
         author = "[MOL]Silver",
-        version = "1.1",
+        version = "1.2",
         date = "25.08.2022",
         license = "GNU GPL, v2 or later",
         layer = 0,
@@ -12,7 +12,7 @@ function widget:GetInfo()
 end
 
 local maxTargetsPerEnemy = 1
-local minPower = 70 -- skip t1 air scouts
+local minPower = 60 -- skip t1 air scouts
 local rangeMultiplier = 1.4
 local CMD_UNIT_SET_TARGET = 34923
 local CMD_UNIT_CANCEL_TARGET = 34924
@@ -76,6 +76,17 @@ function widget:GameFrame(f)
     end
 end
 
+local UnitDefsCached = {}
+for name, udefs in pairs(UnitDefs) do
+    if udefs.canFly then
+        local power = udefs.metalCost
+        power = math.pow(power / minPower, 5)
+        UnitDefsCached[udefs.id] = {
+            power = power
+        }
+    end
+end
+
 function checkTargets()
     for unitID, def in pairs(unitsTbl) do
         GiveOrderToUnit(unitID, CMD_UNIT_CANCEL_TARGET, {}, {})
@@ -92,13 +103,13 @@ function checkTargets()
                     k = k + 1
                 end
                 local uidid = GetUnitDefID(EnemyUnitID)
-                local udefs = UnitDefs[uidid]
-                if udefs ~= nil and udefs.canFly then
-                    local power = udefs.metalCost
-                    if power and minPower < power then
+                local udefs = UnitDefsCached[uidid]
+                if udefs then
+                    local power = udefs.power
+                    if minPower < power then
                         j = j + 1
                         local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
-                        local priority = (power * power) / separation
+                        local priority = power / separation
                         enemyData[j] = {priority, EnemyUnitID, unitID}
                         ghostedEnemyData[EnemyUnitID] = {
                             power = power,
@@ -109,7 +120,7 @@ function checkTargets()
                         j = j + 1
                         local power = ghostedEnemyData[EnemyUnitID].power
                         local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
-                        local priority = (power * power) / separation
+                        local priority = power / separation
                         enemyData[j] = {priority, EnemyUnitID, unitID}
                     else
                         local TestTarget = GetUnitWeaponTestTarget(unitID, 1, EnemyUnitID)
@@ -117,7 +128,7 @@ function checkTargets()
                             j = j + 1
                             local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
                             local power = minPower
-                            local priority = (power * power) / separation
+                            local priority = power / separation
                             enemyData[j] = {priority, EnemyUnitID, unitID}
                         end
                     end
