@@ -39,8 +39,17 @@ local targetData = {}
 local targetPerEnemy = {}
 local unitDefsCached = {}
 local unitDefsCachedAA = {}
+local PriorityTargets
+
+
 local ArmorDefs = VFS.Include("gamedata/armordefs.lua")
-local PriorityTargets = ArmorDefs.priority_air
+if ArmorDefs.priority_air then
+    PriorityTargets = ArmorDefs.priority_air
+else
+    if ArmorDefs.bombers then
+        PriorityTargets = ArmorDefs.bombers
+    end
+end
 
 function widget:Initialize()
     for index, udefs in pairs(UnitDefs) do
