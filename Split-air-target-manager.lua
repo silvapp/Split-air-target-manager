@@ -11,9 +11,9 @@ function widget:GetInfo()
     }
 end
 
-local maxTargetsPerEnemy = 3 -- if "weak" AA
+local maxTargetsPerEnemy = 2 -- if "weak" AA
 local minPower = 0 -- skip t1 air scouts
-local rangeMultiplier = 1.4
+local rangeMultiplier = 1.3
 local CMD_UNIT_SET_TARGET = 34923
 local CMD_UNIT_CANCEL_TARGET = 34924
 local ENEMY_UNITS = Spring.ENEMY_UNITS
@@ -118,7 +118,7 @@ function widget:KeyPress(key, modifier, isRepeat)
 end
 
 function widget:GameFrame(f)
-    if f % 5 == 0 then
+    if f % 12 == 0 then
         targetPerEnemy = {}
         targetData = {}
         checkTargets()
