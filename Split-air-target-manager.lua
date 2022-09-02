@@ -3,7 +3,7 @@ function widget:GetInfo()
         name = "Split air target manager",
         desc = "To enable select AA and press Alt+Space, to disable deselect any unit and press Alt+Space two times",
         author = "[MOL]Silver",
-        version = "1.2",
+        version = "1.3",
         date = "25.08.2022",
         license = "GNU GPL, v2 or later",
         layer = 0,
@@ -32,17 +32,48 @@ local GL_LINE_STRIP = GL.LINE_STRIP
 local GetKeyCode = Spring.GetKeyCode
 local targetPerEnemy = {}
 local targetData = {}
-local unitsTbl = {}
+local UnitDefsCachedAA = {}
 local GetUnitDefID = Spring.GetUnitDefID
 local GetUnitWeaponTestTarget = Spring.GetUnitWeaponTestTarget
 local GetSelectedUnits = Spring.GetSelectedUnits
 local ghostedEnemyData = {}
+local n = 0
+
+
+
+local AllowedWeapons = {}
+for index, udefs in pairs(UnitDefs) do
+    if udefs.weapons[1] and udefs.weapontype ~= "Shield" then
+        local isShield
+        for wdefName, value in udefs.wDefs[1]:pairs() do
+            if wdefName == "isShield" then
+                isShield = value
+            end
+        end
+        local wNumber = udefs.primaryWeapon
+        if udefs.weapons[wNumber].onlyTargets.vtol == true and not isShield and not udefs.isMobileBuilder then
+            AllowedWeapons[udefs.id] = {
+                name = udefs.name,
+                maxWeaponRange = udefs.maxWeaponRange
+            }
+        end
+    end
+end
+
+local UnitDefsCached = {}
+for name, udefs in pairs(UnitDefs) do
+    if udefs.canFly then
+        local power = udefs.metalCost
+        power = math.pow(power / minPower, 5)
+        UnitDefsCached[udefs.id] = {
+            power = power
+        }
+    end
+end
 
 local function compare(a, b)
     return a[1] > b[1]
 end
-
-local n = 0
 
 function widget:KeyPress(key, modifier, isRepeat)
     if not modifier["alt"] and not isRepeat then
@@ -53,14 +84,15 @@ function widget:KeyPress(key, modifier, isRepeat)
         if #SelectedUnits == 0 then
             n = n + 1
             if n > 1 then
-                unitsTbl = {}
+                UnitDefsCachedAA = {}
                 n = 0
             end
         end
         for _, unitID in pairs(SelectedUnits) do
-            if not unitsTbl[unitID] then
+            local udefid =  GetUnitDefID(unitID)
+            if not UnitDefsCachedAA[unitID] and AllowedWeapons[udefid] then
                 local udefs = UnitDefs[Spring.GetUnitDefID(unitID)]
-                unitsTbl[unitID] = {
+                UnitDefsCachedAA[unitID] = {
                     maxWeaponRange = udefs.maxWeaponRange
                 }
             end
@@ -76,19 +108,8 @@ function widget:GameFrame(f)
     end
 end
 
-local UnitDefsCached = {}
-for name, udefs in pairs(UnitDefs) do
-    if udefs.canFly then
-        local power = udefs.metalCost
-        power = math.pow(power / minPower, 5)
-        UnitDefsCached[udefs.id] = {
-            power = power
-        }
-    end
-end
-
 function checkTargets()
-    for unitID, def in pairs(unitsTbl) do
+    for unitID, def in pairs(UnitDefsCachedAA) do
         GiveOrderToUnit(unitID, CMD_UNIT_CANCEL_TARGET, {}, {})
         local range = def.maxWeaponRange * rangeMultiplier
         local x, y, z = GetUnitPosition(unitID, true, false)
@@ -139,6 +160,7 @@ function checkTargets()
             targetData[unitID] = nil
         end
         if #enemyData > 0 then
+            Spring.Echo(#enemyData)
             table.sort(enemyData, compare)
             for i, v in pairs(enemyData) do
                 if not targetPerEnemy[v[2]] then
@@ -149,16 +171,16 @@ function checkTargets()
                     break
                 end
             end
-            for i, v in pairs(enemyData) do
-                if targetPerEnemy[v[2]] and targetPerEnemy[v[2]] <= maxTargetsPerEnemy then
-                    targetPerEnemy[v[2]] = targetPerEnemy[v[2]] + 1
-                    lastUnitID = v[3]
-                    if targetData[v[3]] then
-                        targetData[v[3]] = v[2]
-                    end
-                    break
-                end
-            end
+            -- for i, v in pairs(enemyData) do
+            --     if targetPerEnemy[v[2]] and targetPerEnemy[v[2]] <= maxTargetsPerEnemy then
+            --         targetPerEnemy[v[2]] = targetPerEnemy[v[2]] + 1
+            --         lastUnitID = v[3]
+            --         if targetData[v[3]] then
+            --             targetData[v[3]] = v[2]
+            --         end
+            --         break
+            --     end
+            -- end
             if tonumber(targetData[unitID]) ~= nil then
                 GiveOrderToUnit(unitID, CMD_UNIT_SET_TARGET, {targetData[unitID]}, {})
             end
@@ -167,8 +189,8 @@ function checkTargets()
 end
 
 function widget:UnitDestroyed(unitID, unitDefID, unitTeam)
-    if unitsTbl[unitID] then
-        unitsTbl[unitID] = nil
+    if UnitDefsCachedAA[unitID] then
+        UnitDefsCachedAA[unitID] = nil
         targetData[unitID] = nil
     end
     if ghostedEnemyData[unitID] then
@@ -193,7 +215,7 @@ local function DrawLine(a, b)
 end
 
 function widget:DrawWorld()
-    for unitID in pairs(unitsTbl) do
+    for unitID in pairs(UnitDefsCachedAA) do
         if unitID then
             local ux, uy, uz = GetUnitViewPosition(unitID)
             if ux and uy and uz then
