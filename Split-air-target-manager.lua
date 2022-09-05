@@ -13,7 +13,7 @@ end
 
 local maxTargetsPerEnemy = 2 -- if "weak" AA
 local minPower = 0 -- skip t1 air scouts
-local rangeMultiplier = 1.3
+local rangeMultiplier = 1.25
 local CMD_UNIT_SET_TARGET = 34923
 local CMD_UNIT_CANCEL_TARGET = 34924
 local ENEMY_UNITS = Spring.ENEMY_UNITS
@@ -244,7 +244,7 @@ function widget:DrawWorld()
             if ux and uy and uz then
                 glLineWidth(2)
                 glColor(1.0, 0.2, 0.0, 0.5)
-                glDrawGroundCircle(ux, uy, uz, 40, 3)
+                glDrawGroundCircle(ux, uy, uz, 50, 3)
                 if targetData[unitID] then
                     local ex, ey, ez = GetUnitViewPosition(targetData[unitID])
                     if ex and ey and ez then
