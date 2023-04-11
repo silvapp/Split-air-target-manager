@@ -3,8 +3,8 @@ function widget:GetInfo()
         name = "Split air target manager",
         desc = "To enable select AA and press Alt+Space, to disable deselect any unit and press Alt+Space two times",
         author = "[MOL]Silver",
-        version = "1.4",
-        date = "25.08.2022",
+        version = "1.41",
+        date = "10.04.2023",
         license = "GNU GPL, v2 or later",
         layer = 0,
         enabled = false
@@ -42,14 +42,65 @@ local unitDefsCachedAA = {}
 local PriorityTargets
 
 
-local ArmorDefs = VFS.Include("gamedata/armordefs.lua")
-if ArmorDefs.priority_air then
-    PriorityTargets = ArmorDefs.priority_air
-else
-    if ArmorDefs.bombers then
-        PriorityTargets = ArmorDefs.bombers
-    end
-end
+-- local ArmorDefs = VFS.Include("gamedata/armordefs.lua")
+-- if ArmorDefs.priority_air then
+--     PriorityTargets = ArmorDefs.priority_air
+-- else
+--     if ArmorDefs.bombers then
+--         PriorityTargets = ArmorDefs.bombers
+--     end
+-- end
+
+PriorityTargets = {
+        --Bombers
+        "armcybr",
+        "armlance",
+        "armpnix",
+        "armthund",
+        "armcyclone",
+        "armgripn",
+        "corhurc",
+        "corshad",
+        "cortitan",
+        "tllabomber",
+        "tllbomber",
+        "tlltorpp",
+        "coreclipse",
+        "corseap",
+        "armseap",
+        "corsbomb",
+        "armorion",
+        "tllanhur",
+        "tllaether",
+        "talon_shade",
+        "talon_eclipse",
+        "talon_handgod",
+        "gok_dirgesinger",
+        "gok_hookah",
+        "gok_nurgle",
+
+        --Transporters
+        "armatlas",
+        "armdfly",
+        "corseahook",
+        "corvalk",
+        "tllrobber",
+        "tlltplane",
+        "armmuat",
+        "tllbtrans",
+        "cormuat",
+        "talon_wyvern",
+        "talon_rukh",
+        "talon_tau",
+        "talon_plutor",
+        "talon_spirit",
+        "corlift",
+        "armlift",
+        "gok_chariot",
+        "gok_wordbearer",
+        "gok_benne",
+}
+
 
 function widget:Initialize()
     for index, udefs in pairs(UnitDefs) do
