@@ -20,10 +20,12 @@ local ENEMY_UNITS = Spring.ENEMY_UNITS
 local GetKeyCode = Spring.GetKeyCode
 local GetSelectedUnits = Spring.GetSelectedUnits
 local GetUnitDefID = Spring.GetUnitDefID
+local GetUnitIsDead = Spring.GetUnitIsDead
 local GetUnitPosition = Spring.GetUnitPosition
 local GetUnitSeparation = Spring.GetUnitSeparation
 local GetUnitsInSphere = Spring.GetUnitsInSphere
 local GetUnitViewPosition = Spring.GetUnitViewPosition
+local GetUnitWeaponHaveFreeLineOfFire = Spring.GetUnitWeaponHaveFreeLineOfFire
 local GetUnitWeaponTestTarget = Spring.GetUnitWeaponTestTarget
 local GiveOrderToUnit = Spring.GiveOrderToUnit
 local GL_LINE_STRIP = GL.LINE_STRIP
@@ -39,7 +41,7 @@ local targetData = {}
 local targetPerEnemy = {}
 local unitDefsCached = {}
 local unitDefsCachedAA = {}
-local PriorityTargets
+local PriorityTargets = {}
 
 
 -- local ArmorDefs = VFS.Include("gamedata/armordefs.lua")
@@ -101,7 +103,6 @@ PriorityTargets = {
         "gok_benne",
 }
 
-
 function widget:Initialize()
     for index, udefs in pairs(UnitDefs) do
         if udefs.weapons[1] and udefs.weapontype ~= "Shield" then
@@ -125,18 +126,21 @@ function widget:Initialize()
             end
         end
     end
-    for id, udefs in ipairs(UnitDefs) do
+
+    for id, udefs in pairs(UnitDefs) do
         if udefs.canFly then
             local cost = udefs.metalCost
             local power = cost / 1000
-            for i, name in ipairs(PriorityTargets) do
+            local unitName
+            for i, name in pairs(PriorityTargets) do
                 if name == udefs.name then
                     power = math.pow(cost / 10, 5)
-
+                    unitName = name
                 end
             end
             unitDefsCached[udefs.id] = {
-                power = power
+                power = power,
+                name = unitName,
             }
         end
     end
@@ -155,25 +159,36 @@ function widget:KeyPress(key, modifier, isRepeat)
         local SelectedUnits = GetSelectedUnits()
         if #SelectedUnits == 0 then
             n = n + 1
+
             if n > 1 then
                 unitDefsCachedAA = {}
                 n = 0
             end
         end
         for _, unitID in pairs(SelectedUnits) do
-            local udefid = GetUnitDefID(unitID)
-            if not unitDefsCachedAA[unitID] and allowedWeapons[udefid] then
-                unitDefsCachedAA[unitID] = allowedWeapons[udefid]
+            local unitDefID = GetUnitDefID(unitID)
+
+            if not unitDefsCachedAA[unitID] and allowedWeapons[unitDefID] then
+                unitDefsCachedAA[unitID] = allowedWeapons[unitDefID]
             end
         end
     end
 end
 
 function widget:GameFrame(f)
-    if f % 12 == 0 then
+    if f % 15 == 0 then
         targetPerEnemy = {}
         targetData = {}
         checkTargets()
+    end
+end
+
+function widget:Update()
+    for enemyID in pairs(ghostedEnemyData) do
+        local isDead = GetUnitIsDead(enemyID)
+        if isDead then
+            ghostedEnemyData[enemyID] = nil
+        end
     end
 end
 
@@ -185,66 +200,80 @@ function checkTargets()
         local enemyData = {}
         local j = 0
         local k = 0
+
         if x and y and z then
             local EnemyUnitsInRange = GetUnitsInSphere(x, y, z, range, ENEMY_UNITS)
             for i = 1, #EnemyUnitsInRange do
                 local EnemyUnitID = EnemyUnitsInRange[i]
+
                 if targetData[unitID] ~= EnemyUnitID then
                     k = k + 1
                 end
-                local uidid = GetUnitDefID(EnemyUnitID)
-                local udefs = unitDefsCached[uidid]
+                local unitDefID = GetUnitDefID(EnemyUnitID)
+                local udefs = unitDefsCached[unitDefID]
                 if udefs then
+                    -- Spring.Echo("unitDef: is known")
                     local power = udefs.power
+
                     if minPower < power then
                         j = j + 1
                         local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
                         local priority = power / separation
+
                         enemyData[j] = {priority, EnemyUnitID, unitID}
+
                         ghostedEnemyData[EnemyUnitID] = {
                             power = power,
                         }
                     end
                 else
                     if ghostedEnemyData[EnemyUnitID] then
+                        --Spring.Echo("ghostedEnemy: yes")
                         j = j + 1
                         local power = ghostedEnemyData[EnemyUnitID].power
                         local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
                         local priority = power / separation
+
                         enemyData[j] = {priority, EnemyUnitID, unitID}
                     else
-                        local TestTarget = GetUnitWeaponTestTarget(unitID, 1, EnemyUnitID)
-                        if TestTarget == true then
-                            j = j + 1
-                            local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
-                            local power = minPower
-                            local priority = power / separation
-                            enemyData[j] = {priority, EnemyUnitID, unitID}
-                        end
+                        --Spring.Echo("unknown dot: yes")
+                        j = j + 1
+                        local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
+                        local power = minPower
+                        local priority = power / separation
+                        enemyData[j] = {priority, EnemyUnitID, unitID}
                     end
                 end
             end
         end
+
         if j == k then
             targetData[unitID] = nil
         end
+
         if #enemyData > 0 then
             table.sort(enemyData, compare)
             if def.weakWeapon == false then
                 for i, v in pairs(enemyData) do
-                    if not targetPerEnemy[v[2]] or targetPerEnemy[v[2]][1] == 0 then
-                        targetPerEnemy[v[2]] = {1, 0}
-                        if v[3] then
-                            targetData[v[3]] = v[2]
+                    -- v[1] priority value
+                    -- v[2] enemyID
+                    -- v[3] your unitID (weapon)
+                    if not targetPerEnemy[v[2]] or targetPerEnemy[v[2]][1] == false then
+                        local TestTarget = Spring.GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
+                        if TestTarget == true then
+                            targetPerEnemy[v[2]] = {true, 0}
+                            if v[3] then
+                                targetData[v[3]] = v[2]
+                            end
+                            break
                         end
-                        break
                     end
                 end
             end
             if def.weakWeapon == true then
                 for i, v in pairs(enemyData) do
                     if targetPerEnemy[v[2]] == nil then
-                        targetPerEnemy[v[2]] = {0, 0}
+                        targetPerEnemy[v[2]] = {false, 0}
                     end
                     if targetPerEnemy[v[2]][2] <= maxTargetsPerEnemy then
                         targetPerEnemy[v[2]][2] = targetPerEnemy[v[2]][2] + 1
@@ -255,6 +284,7 @@ function checkTargets()
                     end
                 end
             end
+
             if tonumber(targetData[unitID]) ~= nil then
                 GiveOrderToUnit(unitID, CMD_UNIT_SET_TARGET, {targetData[unitID]}, {})
             end
@@ -267,13 +297,10 @@ function widget:UnitDestroyed(unitID, unitDefID, unitTeam)
         unitDefsCachedAA[unitID] = nil
         targetData[unitID] = nil
     end
-
-    if ghostedEnemyData[unitID] then
-        ghostedEnemyData[unitID] = nil
-    end
 end
 
 function widget:UnitCreated(unitID, allyTeam)
+    --kill the dot info if this unitID gets reused on own team
     if ghostedEnemyData[unitID] then
         ghostedEnemyData[unitID] = nil
     end
