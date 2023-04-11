@@ -26,7 +26,6 @@ local GetUnitSeparation = Spring.GetUnitSeparation
 local GetUnitsInSphere = Spring.GetUnitsInSphere
 local GetUnitViewPosition = Spring.GetUnitViewPosition
 local GetUnitWeaponHaveFreeLineOfFire = Spring.GetUnitWeaponHaveFreeLineOfFire
-local GetUnitWeaponTestTarget = Spring.GetUnitWeaponTestTarget
 local GiveOrderToUnit = Spring.GiveOrderToUnit
 local GL_LINE_STRIP = GL.LINE_STRIP
 local glBeginEnd = gl.BeginEnd
@@ -236,12 +235,13 @@ function checkTargets()
 
                         enemyData[j] = {priority, EnemyUnitID, unitID}
                     else
-                        --Spring.Echo("unknown dot: yes")
-                        j = j + 1
-                        local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
-                        local power = minPower
-                        local priority = power / separation
-                        enemyData[j] = {priority, EnemyUnitID, unitID}
+                        -- uncomment if want split/sort unknown radar dots 
+                        -- Spring.Echo("unknown dot: yes")
+                        -- j = j + 1
+                        -- local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
+                        -- local power = minPower
+                        -- local priority = power / separation
+                        -- enemyData[j] = {priority, EnemyUnitID, unitID}
                     end
                 end
             end
@@ -259,7 +259,7 @@ function checkTargets()
                     -- v[2] enemyID
                     -- v[3] your unitID (weapon)
                     if not targetPerEnemy[v[2]] or targetPerEnemy[v[2]][1] == false then
-                        local TestTarget = Spring.GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
+                        local TestTarget = GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
                         if TestTarget == true then
                             targetPerEnemy[v[2]] = {true, 0}
                             if v[3] then
