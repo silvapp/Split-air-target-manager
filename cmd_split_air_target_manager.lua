@@ -3,16 +3,16 @@ function widget:GetInfo()
         name = "Split air target manager",
         desc = "To enable select AA and press Alt+Space, to disable deselect any unit and press Alt+Space two times",
         author = "[MOL]Silver",
-        version = "1.41",
-        date = "10.04.2023",
+        version = "1.5",
+        date = "12.04.2023",
         license = "GNU GPL, v2 or later",
         layer = 0,
-        enabled = false
+        enabled = true
     }
 end
 
 local maxTargetsPerEnemy = 2 -- if "weak" AA
-local minPower = 0.040 -- skip t1 air scouts
+local minPower = 0.040 -- skip T1 scouts 
 local rangeMultiplier = 1.25
 local CMD_UNIT_SET_TARGET = 34923
 local CMD_UNIT_CANCEL_TARGET = 34924
@@ -25,6 +25,7 @@ local GetUnitPosition = Spring.GetUnitPosition
 local GetUnitSeparation = Spring.GetUnitSeparation
 local GetUnitsInSphere = Spring.GetUnitsInSphere
 local GetUnitViewPosition = Spring.GetUnitViewPosition
+local GetUnitWeaponState = Spring.GetUnitWeaponState
 local GetUnitWeaponHaveFreeLineOfFire = Spring.GetUnitWeaponHaveFreeLineOfFire
 local GiveOrderToUnit = Spring.GiveOrderToUnit
 local GL_LINE_STRIP = GL.LINE_STRIP
@@ -42,7 +43,6 @@ local unitDefsCached = {}
 local unitDefsCachedAA = {}
 local PriorityTargets = {}
 
-
 -- local ArmorDefs = VFS.Include("gamedata/armordefs.lua")
 -- if ArmorDefs.priority_air then
 --     PriorityTargets = ArmorDefs.priority_air
@@ -52,55 +52,13 @@ local PriorityTargets = {}
 --     end
 -- end
 
-PriorityTargets = {
-        --Bombers
-        "armcybr",
-        "armlance",
-        "armpnix",
-        "armthund",
-        "armcyclone",
-        "armgripn",
-        "corhurc",
-        "corshad",
-        "cortitan",
-        "tllabomber",
-        "tllbomber",
-        "tlltorpp",
-        "coreclipse",
-        "corseap",
-        "armseap",
-        "corsbomb",
-        "armorion",
-        "tllanhur",
-        "tllaether",
-        "talon_shade",
-        "talon_eclipse",
-        "talon_handgod",
-        "gok_dirgesinger",
-        "gok_hookah",
-        "gok_nurgle",
-
-        --Transporters
-        "armatlas",
-        "armdfly",
-        "corseahook",
-        "corvalk",
-        "tllrobber",
-        "tlltplane",
-        "armmuat",
-        "tllbtrans",
-        "cormuat",
-        "talon_wyvern",
-        "talon_rukh",
-        "talon_tau",
-        "talon_plutor",
-        "talon_spirit",
-        "corlift",
-        "armlift",
-        "gok_chariot",
-        "gok_wordbearer",
-        "gok_benne",
-}
+PriorityTargets = { -- "Bombers"
+                   "armcybr", "armlance", "armpnix", "armthund", "armcyclone", "armgripn", "corhurc", "corshad", "cortitan", "tllabomber",
+                   "tllbomber", "tlltorpp", "coreclipse", "corseap", "armseap", "corsbomb", "armorion", "tllanhur", "tllaether", "talon_shade",
+                   "talon_eclipse", "talon_handgod", "gok_dirgesinger", "gok_hookah", "gok_nurgle",
+                    -- "Transporters"
+                    "armatlas", "armdfly", "corseahook", "corvalk", "tllrobber", "tlltplane", "armmuat", "tllbtrans", "cormuat", "talon_wyvern",
+                    "talon_rukh", "talon_tau", "talon_plutor", "talon_spirit", "corlift", "armlift", "gok_chariot", "gok_wordbearer", "gok_benne",}
 
 function widget:Initialize()
     for index, udefs in pairs(UnitDefs) do
@@ -158,7 +116,6 @@ function widget:KeyPress(key, modifier, isRepeat)
         local SelectedUnits = GetSelectedUnits()
         if #SelectedUnits == 0 then
             n = n + 1
-
             if n > 1 then
                 unitDefsCachedAA = {}
                 n = 0
@@ -166,7 +123,6 @@ function widget:KeyPress(key, modifier, isRepeat)
         end
         for _, unitID in pairs(SelectedUnits) do
             local unitDefID = GetUnitDefID(unitID)
-
             if not unitDefsCachedAA[unitID] and allowedWeapons[unitDefID] then
                 unitDefsCachedAA[unitID] = allowedWeapons[unitDefID]
             end
@@ -199,12 +155,10 @@ function checkTargets()
         local enemyData = {}
         local j = 0
         local k = 0
-
         if x and y and z then
             local EnemyUnitsInRange = GetUnitsInSphere(x, y, z, range, ENEMY_UNITS)
             for i = 1, #EnemyUnitsInRange do
                 local EnemyUnitID = EnemyUnitsInRange[i]
-
                 if targetData[unitID] ~= EnemyUnitID then
                     k = k + 1
                 end
@@ -213,14 +167,11 @@ function checkTargets()
                 if udefs then
                     -- Spring.Echo("unitDef: is known")
                     local power = udefs.power
-
                     if minPower < power then
                         j = j + 1
                         local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
                         local priority = power / separation
-
                         enemyData[j] = {priority, EnemyUnitID, unitID}
-
                         ghostedEnemyData[EnemyUnitID] = {
                             power = power,
                         }
@@ -232,16 +183,15 @@ function checkTargets()
                         local power = ghostedEnemyData[EnemyUnitID].power
                         local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
                         local priority = power / separation
-
                         enemyData[j] = {priority, EnemyUnitID, unitID}
                     else
-                        -- uncomment if want split/sort unknown radar dots 
-                        -- Spring.Echo("unknown dot: yes")
-                        -- j = j + 1
-                        -- local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
-                        -- local power = minPower
-                        -- local priority = power / separation
-                        -- enemyData[j] = {priority, EnemyUnitID, unitID}
+                    -- uncomment if want split/sort unknown radar dots 
+                    -- Spring.Echo("unknown dot: yes")
+                    -- j = j + 1
+                    -- local separation = GetUnitSeparation(unitID, EnemyUnitID, true)
+                    -- local power = minPower
+                    -- local priority = power / separation
+                    -- enemyData[j] = {priority, EnemyUnitID, unitID}
                     end
                 end
             end
@@ -259,9 +209,10 @@ function checkTargets()
                     -- v[2] enemyID
                     -- v[3] your unitID (weapon)
                     if not targetPerEnemy[v[2]] or targetPerEnemy[v[2]][1] == false then
-                        local TestTarget = GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
-                        if TestTarget == true then
-                            targetPerEnemy[v[2]] = {true, 0}
+                        local testTarget = GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
+                        local _, loaded = GetUnitWeaponState(v[3], 1)
+                        if testTarget == true and loaded == true then
+                            targetPerEnemy[v[2]] = {true, 1}
                             if v[3] then
                                 targetData[v[3]] = v[2]
                             end
@@ -270,21 +221,19 @@ function checkTargets()
                     end
                 end
             end
+
             if def.weakWeapon == true then
                 for i, v in pairs(enemyData) do
                     if targetPerEnemy[v[2]] == nil then
-                        targetPerEnemy[v[2]] = {false, 0}
+                        targetPerEnemy[v[2]] = {false, 1}
                     end
                     if targetPerEnemy[v[2]][2] <= maxTargetsPerEnemy then
                         targetPerEnemy[v[2]][2] = targetPerEnemy[v[2]][2] + 1
-                        --if not targetData[v[3]] then
                         targetData[v[3]] = v[2]
-                        --end
                         break
                     end
                 end
             end
-
             if tonumber(targetData[unitID]) ~= nil then
                 GiveOrderToUnit(unitID, CMD_UNIT_SET_TARGET, {targetData[unitID]}, {})
             end
@@ -326,15 +275,18 @@ function widget:DrawWorld()
                 glDrawGroundCircle(ux, uy, uz, 50, 3)
                 if targetData[unitID] then
                     local ex, ey, ez = GetUnitViewPosition(targetData[unitID])
+
                     if ex and ey and ez then
                         glLineWidth(3)
                         glColor(1.0, 0.2, 0.0, 0.5)
+
                         DrawLine({ux, uy, uz}, {ex, ey, ez})
                     end
                 end
             end
         end
     end
+
     glLineWidth(1)
     glColor(1, 1, 1, 1)
 end
