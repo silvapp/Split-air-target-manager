@@ -3,7 +3,7 @@ function widget:GetInfo()
         name = "Split air target manager",
         desc = "To enable select AA and press Alt+Space, to disable deselect any unit and press Alt+Space two times",
         author = "[MOL]Silver",
-        version = "1.6",
+        version = "1.61",
         date = "12.04.2023",
         license = "GNU GPL, v2 or later",
         layer = 0,
@@ -40,7 +40,7 @@ local ghostedEnemyData = {}
 local targetData = {}
 local targetPerEnemy = {}
 local unitDefsCached = {}
-local unitDefsCachedAA = {}
+local myDefenders = {}
 local PriorityTargets = {}
 
 -- local ArmorDefs = VFS.Include("gamedata/armordefs.lua")
@@ -51,6 +51,12 @@ local PriorityTargets = {}
 --         PriorityTargets = ArmorDefs.bombers
 --     end
 -- end
+
+-- for unitID, def in pairs(myDefenders) do repeat
+-- if not isLoaded then do break end end
+--      
+--  --end
+-- until true
 
 PriorityTargets = { -- "Bombers"
                    "armcybr", "armlance", "armpnix", "armthund", "armcyclone", "armgripn", "corhurc", "corshad", "cortitan", "tllabomber",
@@ -117,14 +123,14 @@ function widget:KeyPress(key, modifier, isRepeat)
         if #SelectedUnits == 0 then
             n = n + 1
             if n > 1 then
-                unitDefsCachedAA = {}
+                myDefenders = {}
                 n = 0
             end
         end
         for _, unitID in pairs(SelectedUnits) do
             local unitDefID = GetUnitDefID(unitID)
-            if not unitDefsCachedAA[unitID] and allowedWeapons[unitDefID] then
-                unitDefsCachedAA[unitID] = allowedWeapons[unitDefID]
+            if not myDefenders[unitID] and allowedWeapons[unitDefID] then
+                myDefenders[unitID] = allowedWeapons[unitDefID]
             end
         end
     end
@@ -148,7 +154,7 @@ function widget:Update()
 end
 
 function checkTargets()
-    for unitID, def in pairs(unitDefsCachedAA) do
+    for unitID, def in pairs(myDefenders) do
         local _, isLoaded = GetUnitWeaponState(unitID, 1)
         if isLoaded then
             GiveOrderToUnit(unitID, CMD_UNIT_CANCEL_TARGET, {}, {})
@@ -218,9 +224,9 @@ function checkTargets()
                             local testTarget = GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
                             if testTarget == true then
                                 targetPerEnemy[v[2]] = {true, 1}
-                                if v[3] then
+                                --if v[3] then
                                     targetData[v[3]] = v[2]
-                                end
+                                --end
                                 break
                             end
                         end
@@ -249,8 +255,8 @@ function checkTargets()
 end
 
 function widget:UnitDestroyed(unitID, unitDefID, unitTeam)
-    if unitDefsCachedAA[unitID] then
-        unitDefsCachedAA[unitID] = nil
+    if myDefenders[unitID] then
+        myDefenders[unitID] = nil
         targetData[unitID] = nil
     end
 end
@@ -273,7 +279,7 @@ local function DrawLine(a, b)
 end
 
 function widget:DrawWorld()
-    for unitID in pairs(unitDefsCachedAA) do
+    for unitID in pairs(myDefenders) do
         if unitID then
             local ux, uy, uz = GetUnitViewPosition(unitID)
             if ux and uy and uz then
