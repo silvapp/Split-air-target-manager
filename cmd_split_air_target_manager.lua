@@ -221,14 +221,11 @@ function checkTargets()
                         -- v[2] enemyID
                         -- v[3] your unitID (weapon)
                         if not targetPerEnemy[v[2]] or targetPerEnemy[v[2]][1] == false then
-                            local testTarget = GetUnitWeaponHaveFreeLineOfFire(v[3], 1, v[2])
-                            if testTarget == true then
                                 targetPerEnemy[v[2]] = {true, 1}
                                 --if v[3] then
                                     targetData[v[3]] = v[2]
                                 --end
                                 break
-                            end
                         end
                     end
                 end
